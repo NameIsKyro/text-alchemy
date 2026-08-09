@@ -1,0 +1,11 @@
+.text-alchemy-settings .setting-item-description {
+  max-width: 60rem;
+}
+
+.text-alchemy-settings .setting-item-heading {
+  margin-top: var(--size-4-6);
+}
+
+.text-alchemy-settings .setting-item-control input[type="text"] {
+  width: 6rem;
+}

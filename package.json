@@ -1,0 +1,35 @@
+{
+  "name": "text-alchemy",
+  "version": "1.1.0",
+  "description": "Clean, space, sort, link, and list selected text or entire notes in Obsidian.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "npm run typecheck && node esbuild.config.mjs production",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --max-warnings=0",
+    "test": "npm run build && node tests/behavior.test.cjs && node tests/manifest.test.cjs"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-md",
+    "obsidian-plugin",
+    "markdown",
+    "text-cleanup"
+  ],
+  "author": "NameIsKyro",
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "^9.32.0",
+    "@types/node": "^22.16.5",
+    "@typescript-eslint/eslint-plugin": "^8.38.0",
+    "@typescript-eslint/parser": "^8.38.0",
+    "builtin-modules": "^5.0.0",
+    "esbuild": "^0.25.8",
+    "eslint": "^9.32.0",
+    "eslint-plugin-obsidianmd": "^0.4.1",
+    "obsidian": "^1.13.1",
+    "tslib": "^2.8.1",
+    "typescript": "^5.8.3"
+  }
+}

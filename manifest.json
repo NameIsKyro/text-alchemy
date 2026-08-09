@@ -1,0 +1,10 @@
+{
+  "id": "text-alchemy",
+  "name": "Text Alchemy",
+  "version": "1.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Clean, space, sort, link, and list selected text or entire notes.",
+  "author": "NameIsKyro",
+  "authorUrl": "https://github.com/NameIsKyro",
+  "isDesktopOnly": false
+}

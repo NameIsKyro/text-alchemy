@@ -1,6 +1,6 @@
 # Text Alchemy
 
-Text Alchemy is an Obsidian text cleanup toolkit for turning messy selected text into clean Markdown. It can remove line gaps, trim wiki links, fix copied PDF wrapping, remove duplicates, make lists, re-number lists, space headings, add dividers, and sort text from one command palette.
+Text Alchemy is an Obsidian text cleanup toolkit for turning messy selected text into clean Markdown. It can remove line gaps, trim wiki links, fix copied PDF wrapping, remove duplicates, make lists, re-number lists, space headings, add dividers, and sort text from the command palette.
 
 Created by [@NameIsKyro](https://github.com/NameIsKyro).
 
@@ -131,40 +131,15 @@ Core settings:
 - Heading levels for custom dividers.
 - Blank lines around dividers.
 
-## Screenshots and recordings
-
-No screenshots are included yet because they should be captured from a real test vault.
-
-Add media files in `docs/assets/`:
-
-- `settings-page.png` - The settings tab with the toggles and Info examples visible.
-- `command-palette.png` - The command palette filtered to Text Alchemy commands.
-- `remove-gaps-before-after.png` - Before and after for blank-line removal.
-- `duplicates-soft-before-after.png` - Before and after for soft duplicate removal.
-- `wiki-link-cleaner-before-after.png` - Before and after for wiki-link cleanup.
-- `sort-lines-before-after.png` - Before and after for sorting lines A to Z.
-- `clean-selected-demo.gif` or `clean-selected-demo.mp4` - A short recording of cleaning selected text.
-- `clean-entire-note-demo.gif` or `clean-entire-note-demo.mp4` - A short recording of whole-note cleanup.
-
-Suggested README image links after you add screenshots:
-
-```md
-![Settings page](docs/assets/settings-page.png)
-![Command palette](docs/assets/command-palette.png)
-![Remove gaps before and after](docs/assets/remove-gaps-before-after.png)
-```
-
 ## Compatibility
 
 - Desktop: supported.
-- Mobile: intended to work because the plugin avoids Node and Electron APIs at runtime.
+- Mobile: supported by using Obsidian editor APIs and avoiding Node or Electron APIs at runtime.
 - Minimum app version: Obsidian `1.5.0`.
-
-Manual mobile device testing should still be done before community submission.
 
 ## Installation
 
-After Text Alchemy is published in the community directory, install it from Obsidian:
+Install from the community directory when Text Alchemy is listed:
 
 1. Open Settings.
 2. Go to Community plugins.
@@ -178,6 +153,16 @@ Manual install for testing:
 3. Put those three files in that folder.
 4. Reload Obsidian.
 5. Enable Text Alchemy in Community plugins.
+
+## Release files
+
+Each GitHub release should attach exactly these files:
+
+- `main.js`
+- `manifest.json`
+- `styles.css`
+
+The source repository intentionally does not commit generated release files.
 
 ## Privacy
 

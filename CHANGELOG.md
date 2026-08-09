@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1
+
+- Polished the repository for GitHub publication.
+- Removed unfinished media placeholders from the README and source package.
+- Added GitHub issue templates, pull request template, Dependabot config, contributing guide, and repository metadata.
+- Refreshed release assets for version `1.1.1`.
+
 ## 1.1.0
 
 - Renamed the combined cleaner and sorter toolkit to Text Alchemy.

@@ -1,2 +1,5 @@
-# Auto detect text files and perform LF normalization
+# Normalize text files in the repository.
 * text=auto
+
+# Keep generated release assets out of language stats if they are ever attached to a branch by mistake.
+main.js linguist-generated=true

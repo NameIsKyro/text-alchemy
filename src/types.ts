@@ -2,8 +2,11 @@ export const ALL_HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const;
 
 export type HeadingLevel = (typeof ALL_HEADING_LEVELS)[number];
 export type BulletMarker = "-" | "*" | "+";
+export type DateFormat = "YYYY-MM-DD" | "YYYY/MM/DD" | "DD/MM/YYYY" | "MM/DD/YYYY" | "DD/MM/YY" | "MM/DD/YY" | "DD-MM-YYYY" | "MM-DD-YYYY";
+export type DateMarkStyle = "friendly" | "plainDate" | "linkDate" | "none";
 export type DuplicateMode = "off" | "soft" | "hard";
 export type SortMode = "off" | "linesAz" | "linesZa" | "headingsAz" | "titleLinesAz";
+export type WeekStart = "monday" | "sunday";
 
 export interface PipelineSettings {
   trimWhitespace: boolean;
@@ -31,6 +34,11 @@ export interface TextAlchemySettings {
   dividerHeadingLevels: HeadingLevel[];
   addBlankLinesAroundDivider: boolean;
   bulletMarker: BulletMarker;
+  dateSuggestionsEnabled: boolean;
+  dateLinkFormat: DateFormat;
+  datePlainFormat: DateFormat;
+  dateMarkStyle: DateMarkStyle;
+  dateWeekStart: WeekStart;
   numberedListStart: number;
   duplicateMode: DuplicateMode;
   sortMode: SortMode;
@@ -71,6 +79,29 @@ export const PIPELINE_TOOL_INFO: Record<keyof PipelineSettings, string> = {
   turnLinesIntoBulletList: "Info: Adds bullet markers to each line. Example: \"Milk\" becomes \"- Milk\".",
   turnLinesIntoNumberedList: "Info: Adds numbers to each line. Example: \"Milk\" then \"Cheese\" becomes \"1. Milk\" then \"2. Cheese\".",
   turnLinesIntoChecklist: "Info: Adds unchecked task boxes. Example: \"Milk\" becomes \"- [ ] Milk\"."
+};
+
+export const DATE_FORMAT_LABELS: Record<DateFormat, string> = {
+  "YYYY-MM-DD": "YYYY-MM-DD",
+  "YYYY/MM/DD": "YYYY/MM/DD",
+  "DD/MM/YYYY": "DD/MM/YYYY",
+  "MM/DD/YYYY": "MM/DD/YYYY",
+  "DD/MM/YY": "DD/MM/YY",
+  "MM/DD/YY": "MM/DD/YY",
+  "DD-MM-YYYY": "DD-MM-YYYY",
+  "MM-DD-YYYY": "MM-DD-YYYY"
+};
+
+export const DATE_MARK_STYLE_LABELS: Record<DateMarkStyle, string> = {
+  friendly: "Friendly mark",
+  plainDate: "Plain date",
+  linkDate: "Linked date",
+  none: "No mark"
+};
+
+export const WEEK_START_LABELS: Record<WeekStart, string> = {
+  monday: "Monday",
+  sunday: "Sunday"
 };
 
 export const SORT_MODE_LABELS: Record<SortMode, string> = {
@@ -125,6 +156,11 @@ export const DEFAULT_SETTINGS: TextAlchemySettings = {
   dividerHeadingLevels: [...ALL_HEADING_LEVELS],
   addBlankLinesAroundDivider: true,
   bulletMarker: "-",
+  dateSuggestionsEnabled: true,
+  dateLinkFormat: "YYYY-MM-DD",
+  datePlainFormat: "DD/MM/YYYY",
+  dateMarkStyle: "friendly",
+  dateWeekStart: "monday",
   numberedListStart: 1,
   duplicateMode: "off",
   sortMode: "off",
@@ -140,6 +176,11 @@ export function normalizeSettings(settings: Partial<TextAlchemySettings>): TextA
     dividerHeadingLevels: normalizeHeadingLevels(settings.dividerHeadingLevels, [...ALL_HEADING_LEVELS]),
     addBlankLinesAroundDivider: settings.addBlankLinesAroundDivider !== false,
     bulletMarker: isBulletMarker(settings.bulletMarker) ? settings.bulletMarker : "-",
+    dateSuggestionsEnabled: settings.dateSuggestionsEnabled !== false,
+    dateLinkFormat: isDateFormat(settings.dateLinkFormat) ? settings.dateLinkFormat : "YYYY-MM-DD",
+    datePlainFormat: isDateFormat(settings.datePlainFormat) ? settings.datePlainFormat : "DD/MM/YYYY",
+    dateMarkStyle: isDateMarkStyle(settings.dateMarkStyle) ? settings.dateMarkStyle : "friendly",
+    dateWeekStart: isWeekStart(settings.dateWeekStart) ? settings.dateWeekStart : "monday",
     numberedListStart: normalizeStartNumber(settings.numberedListStart),
     duplicateMode: isDuplicateMode(settings.duplicateMode) ? settings.duplicateMode : "off",
     sortMode: isSortMode(settings.sortMode) ? settings.sortMode : "off",
@@ -163,6 +204,21 @@ export function isBulletMarker(value: unknown): value is BulletMarker {
   return value === "-" || value === "*" || value === "+";
 }
 
+export function isDateFormat(value: unknown): value is DateFormat {
+  return value === "YYYY-MM-DD"
+    || value === "YYYY/MM/DD"
+    || value === "DD/MM/YYYY"
+    || value === "MM/DD/YYYY"
+    || value === "DD/MM/YY"
+    || value === "MM/DD/YY"
+    || value === "DD-MM-YYYY"
+    || value === "MM-DD-YYYY";
+}
+
+export function isDateMarkStyle(value: unknown): value is DateMarkStyle {
+  return value === "friendly" || value === "plainDate" || value === "linkDate" || value === "none";
+}
+
 export function isDuplicateMode(value: unknown): value is DuplicateMode {
   return value === "off" || value === "soft" || value === "hard";
 }
@@ -181,6 +237,10 @@ export function isSortMode(value: unknown): value is SortMode {
     || value === "linesZa"
     || value === "headingsAz"
     || value === "titleLinesAz";
+}
+
+export function isWeekStart(value: unknown): value is WeekStart {
+  return value === "monday" || value === "sunday";
 }
 
 function normalizePipeline(pipeline: Partial<PipelineSettings> | undefined): PipelineSettings {

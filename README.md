@@ -1,6 +1,6 @@
 # Text Alchemy
 
-Text Alchemy is an Obsidian text cleanup toolkit for turning messy selected text into clean Markdown. It can remove line gaps, trim wiki links, fix copied PDF wrapping, remove duplicates, make lists, re-number lists, space headings, add dividers, and sort text from the command palette.
+Text Alchemy is an Obsidian text cleanup toolkit for turning messy selected text into clean Markdown. It can remove line gaps, trim wiki links, fix copied PDF wrapping, remove duplicates, make lists, re-number lists, space headings, add dividers, sort text from the command palette, and insert quick date links from `@` suggestions.
 
 Created by [@NameIsKyro](https://github.com/NameIsKyro).
 
@@ -26,6 +26,8 @@ Created by [@NameIsKyro](https://github.com/NameIsKyro).
 - Sort lines A to Z or Z to A.
 - Sort heading lines A to Z.
 - Sort title-style lines A to Z.
+- Insert date wiki links from `@today`, `@tomorrow`, `@nextweek`, and more.
+- Insert plain dates from the same `@` suggestions with `Shift Enter`.
 - Clean selected text only, or clean the entire note.
 - Ignore YAML frontmatter.
 - Ignore fenced code blocks.
@@ -84,6 +86,24 @@ Becomes:
 Raw milk contains many different types of bacteria and enzymes that may be affected by heat.
 ```
 
+Insert a quick date link:
+
+```md
+@today
+```
+
+Pick `@today` and press `Enter`:
+
+```md
+[[2026-09-02|Today]]
+```
+
+Pick `@today` and press `Shift Enter`:
+
+```md
+02/09/2026
+```
+
 ## Commands
 
 - `Clean selected text` - Runs the enabled cleaner pipeline on the current selection.
@@ -114,6 +134,24 @@ Raw milk contains many different types of bacteria and enzymes that may be affec
 
 No default hotkeys are registered. Add your own hotkeys in Obsidian's Hotkeys settings if you want them.
 
+## Date suggestions
+
+Type `@` in the editor to open date suggestions. Press `Enter` to insert a wiki link, or press `Shift Enter` to insert the same date as plain text.
+
+Available date suggestions:
+
+- `@today`
+- `@tomorrow`
+- `@yesterday`
+- `@nextweek`
+- `@lastweek`
+- `@nextmonth`
+- `@lastmonth`
+- `@nextyear`
+- `@lastyear`
+- `@startofweek`
+- `@endofweek`
+
 ## Settings
 
 The settings tab lets you build a cleaner pipeline by toggling each tool on or off. Every option includes a short Info description and example so you can remember what it does later.
@@ -123,6 +161,11 @@ Core settings:
 - Whole-note fallback.
 - Ignore YAML frontmatter.
 - Ignore code blocks.
+- Date suggestions.
+- Linked date format.
+- Plain date format.
+- Date mark style.
+- Week starts on.
 - Duplicate handling: off, soft, or hard.
 - Cleaner sort mode.
 - Bullet marker.

@@ -9,3 +9,12 @@
 .text-alchemy-settings .setting-item-control input[type="text"] {
   width: 6rem;
 }
+
+.text-alchemy-date-suggestion-title {
+  font-weight: var(--font-semibold);
+}
+
+.text-alchemy-date-suggestion-note {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}

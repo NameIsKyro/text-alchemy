@@ -1,4 +1,5 @@
 import { Editor, Notice, Plugin } from "obsidian";
+import { DateTokenSuggest } from "./date-suggest";
 import { applyProtectedTransform, type TextTransform } from "./protection";
 import { runPipeline } from "./pipeline";
 import { TextAlchemySettingTab } from "./settings-tab";
@@ -76,6 +77,7 @@ export default class TextAlchemyPlugin extends Plugin {
     this.addTransformCommand("sort-title-lines-az", "Sort title lines A to Z", sortTitleLinesAZ, "Sorted title lines A to Z");
 
     this.addSettingTab(new TextAlchemySettingTab(this.app, this));
+    this.registerEditorSuggest(new DateTokenSuggest(this.app, this));
   }
 
   async loadSettings(): Promise<void> {

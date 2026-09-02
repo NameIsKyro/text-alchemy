@@ -1,7 +1,7 @@
 {
   "name": "text-alchemy",
-  "version": "1.1.1",
-  "description": "Clean, space, sort, link, and list selected text or entire notes in Obsidian.",
+  "version": "1.2.0",
+  "description": "Clean, space, sort, link, list, and insert dates in selected text or entire notes in Obsidian.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",

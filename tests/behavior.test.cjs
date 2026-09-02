@@ -7,7 +7,19 @@ const rootDir = path.resolve(__dirname, "..");
 const bundlePath = path.join(rootDir, "main.js");
 const bundleCode = fs.readFileSync(bundlePath, "utf8");
 const commands = [];
+const editorSuggests = [];
 const notices = [];
+const fixedNow = new Date("2026-09-02T12:00:00.000Z");
+
+class FixedDate extends Date {
+  constructor(...args) {
+    super(...(args.length === 0 ? [fixedNow.getTime()] : args));
+  }
+
+  static now() {
+    return fixedNow.getTime();
+  }
+}
 
 class PluginMock {
   constructor() {
@@ -20,6 +32,10 @@ class PluginMock {
 
   addSettingTab(settingTab) {
     this.settingTab = settingTab;
+  }
+
+  registerEditorSuggest(editorSuggest) {
+    editorSuggests.push(editorSuggest);
   }
 
   async loadData() {
@@ -48,8 +64,23 @@ class PluginSettingTabMock {
   }
 }
 
+class EditorSuggestMock {
+  constructor(app) {
+    this.app = app;
+    this.context = null;
+    this.instructions = [];
+  }
+
+  setInstructions(instructions) {
+    this.instructions = instructions;
+  }
+
+  close() {}
+}
+
 const sandbox = {
   console,
+  Date: FixedDate,
   exports: {},
   module: { exports: {} },
   require(name) {
@@ -58,6 +89,7 @@ const sandbox = {
         Notice: NoticeMock,
         Plugin: PluginMock,
         PluginSettingTab: PluginSettingTabMock,
+        EditorSuggest: EditorSuggestMock,
         Setting: class SettingMock {}
       };
     }
@@ -95,10 +127,55 @@ function createEditor(value, selection = value) {
   };
 }
 
+function createRangeEditor(value) {
+  let editorValue = value;
+  let cursor = { line: 0, ch: value.length };
+
+  function splitLines() {
+    return editorValue.split("\n");
+  }
+
+  function positionToOffset(position) {
+    const lines = splitLines();
+    let offset = 0;
+
+    for (let line = 0; line < position.line; line += 1) {
+      offset += lines[line].length + 1;
+    }
+
+    return offset + position.ch;
+  }
+
+  return {
+    getLine(line) {
+      return splitLines()[line] ?? "";
+    },
+    replaceRange(replacement, from, to) {
+      const start = positionToOffset(from);
+      const end = positionToOffset(to ?? from);
+      editorValue = `${editorValue.slice(0, start)}${replacement}${editorValue.slice(end)}`;
+      cursor = { line: from.line, ch: from.ch + replacement.length };
+    },
+    getCursor() {
+      return cursor;
+    },
+    setCursor(nextCursor) {
+      cursor = nextCursor;
+    },
+    read() {
+      return editorValue;
+    }
+  };
+}
+
 function getCommand(id) {
   const command = commands.find((item) => item.id === id);
   assert.ok(command, `Missing command: ${id}`);
   return command;
+}
+
+function toPlain(value) {
+  return JSON.parse(JSON.stringify(value));
 }
 
 async function loadPlugin() {
@@ -113,7 +190,45 @@ async function loadPlugin() {
   assert.equal(plugin.settings.ignoreYamlFrontmatter, true);
   assert.equal(plugin.settings.ignoreCodeBlocks, true);
   assert.equal(commands.length, 25);
+  assert.equal(editorSuggests.length, 1);
   assert.ok(commands.every((command) => !command.id.includes("text-alchemy")));
+
+  const dateSuggest = editorSuggests[0];
+  assert.deepEqual(toPlain(dateSuggest.instructions), [
+    { command: "Enter", purpose: "Insert linked date" },
+    { command: "Shift Enter", purpose: "Insert plain date" }
+  ]);
+
+  let rangeEditor = createRangeEditor("Pay @tod");
+  let trigger = dateSuggest.onTrigger({ line: 0, ch: 8 }, rangeEditor, null);
+  assert.deepEqual(toPlain(trigger), { start: { line: 0, ch: 4 }, end: { line: 0, ch: 8 }, query: "tod" });
+
+  let suggestions = dateSuggest.getSuggestions({ ...trigger, editor: rangeEditor, file: null });
+  let today = suggestions.find((suggestion) => suggestion.token === "today");
+  assert.ok(today, "Expected @today suggestion");
+  dateSuggest.context = { ...trigger, editor: rangeEditor, file: null };
+  dateSuggest.selectSuggestion(today, { shiftKey: false });
+  assert.equal(rangeEditor.read(), "Pay [[2026-09-02|Today]]");
+
+  rangeEditor = createRangeEditor("Due @today");
+  trigger = dateSuggest.onTrigger({ line: 0, ch: 10 }, rangeEditor, null);
+  suggestions = dateSuggest.getSuggestions({ ...trigger, editor: rangeEditor, file: null });
+  today = suggestions.find((suggestion) => suggestion.token === "today");
+  assert.ok(today, "Expected @today suggestion for plain insert");
+  dateSuggest.context = { ...trigger, editor: rangeEditor, file: null };
+  dateSuggest.selectSuggestion(today, { shiftKey: true });
+  assert.equal(rangeEditor.read(), "Due 02/09/2026");
+
+  plugin.settings.dateLinkFormat = "DD/MM/YYYY";
+  plugin.settings.datePlainFormat = "YYYY/MM/DD";
+  rangeEditor = createRangeEditor("Plan @nextweek");
+  trigger = dateSuggest.onTrigger({ line: 0, ch: 14 }, rangeEditor, null);
+  suggestions = dateSuggest.getSuggestions({ ...trigger, editor: rangeEditor, file: null });
+  const nextWeek = suggestions.find((suggestion) => suggestion.token === "nextweek");
+  assert.ok(nextWeek, "Expected @nextweek suggestion");
+  dateSuggest.context = { ...trigger, editor: rangeEditor, file: null };
+  dateSuggest.selectSuggestion(nextWeek, { shiftKey: false });
+  assert.equal(rangeEditor.read(), "Plan [[09/09/2026|Next week]]");
 
   let editor = createEditor("[[Milk]]\n\n[[Cheese]]");
   getCommand("remove-gaps-between-lines").editorCallback(editor);

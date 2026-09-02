@@ -3,15 +3,21 @@ import type { HeadingLevel, PipelineSettings, TextAlchemySettings } from "./type
 import type { Plugin, SettingDefinition, SettingDefinitionItem, SettingGroupItem } from "obsidian";
 import {
   ALL_HEADING_LEVELS,
+  DATE_FORMAT_LABELS,
+  DATE_MARK_STYLE_LABELS,
   PIPELINE_KEYS,
   PIPELINE_TOOL_INFO,
   PIPELINE_TOOL_LABELS,
   SORT_MODE_LABELS,
+  WEEK_START_LABELS,
   isBulletMarker,
+  isDateFormat,
+  isDateMarkStyle,
   isDuplicateMode,
   isHeadingLevel,
   isPipelineKey,
-  isSortMode
+  isSortMode,
+  isWeekStart
 } from "./types";
 
 export interface TextAlchemySettingsHost extends Plugin {
@@ -51,6 +57,47 @@ export class TextAlchemySettingTab extends PluginSettingTab {
             "Ignore code blocks",
             "Info: Protects fenced markdown code blocks. Example: text inside ```md stays unchanged while the rest of the note is cleaned.",
             true
+          )
+        ]
+      },
+      {
+        type: "group",
+        cls: "text-alchemy-settings",
+        heading: "Dates",
+        items: [
+          createToggleDefinition(
+            "dateSuggestionsEnabled",
+            "Date suggestions",
+            "Info: Opens date suggestions after @. Example: @today inserts a linked date with enter or a plain date with shift enter.",
+            true
+          ),
+          createDropdownDefinition(
+            "dateLinkFormat",
+            "Linked date format",
+            "Info: Controls the date inside wiki links. Example output: [[2026-09-02|today]].",
+            "YYYY-MM-DD",
+            DATE_FORMAT_LABELS
+          ),
+          createDropdownDefinition(
+            "datePlainFormat",
+            "Plain date format",
+            "Info: Controls shift-enter output. Example output: 02/09/2026.",
+            "DD/MM/YYYY",
+            DATE_FORMAT_LABELS
+          ),
+          createDropdownDefinition(
+            "dateMarkStyle",
+            "Date mark style",
+            "Info: Controls the text after | in date links. Example output: [[2026-09-02|today]].",
+            "friendly",
+            DATE_MARK_STYLE_LABELS
+          ),
+          createDropdownDefinition(
+            "dateWeekStart",
+            "Week starts on",
+            "Info: Controls start-of-week and end-of-week date shortcuts.",
+            "monday",
+            WEEK_START_LABELS
           )
         ]
       },
@@ -162,6 +209,11 @@ export class TextAlchemySettingTab extends PluginSettingTab {
     if (key === "ignoreCodeBlocks") return this.plugin.settings.ignoreCodeBlocks;
     if (key === "addBlankLinesAroundDivider") return this.plugin.settings.addBlankLinesAroundDivider;
     if (key === "bulletMarker") return this.plugin.settings.bulletMarker;
+    if (key === "dateSuggestionsEnabled") return this.plugin.settings.dateSuggestionsEnabled;
+    if (key === "dateLinkFormat") return this.plugin.settings.dateLinkFormat;
+    if (key === "datePlainFormat") return this.plugin.settings.datePlainFormat;
+    if (key === "dateMarkStyle") return this.plugin.settings.dateMarkStyle;
+    if (key === "dateWeekStart") return this.plugin.settings.dateWeekStart;
     if (key === "numberedListStart") return this.plugin.settings.numberedListStart;
     if (key === "duplicateMode") return this.plugin.settings.duplicateMode;
     if (key === "sortMode") return this.plugin.settings.sortMode;
@@ -186,6 +238,16 @@ export class TextAlchemySettingTab extends PluginSettingTab {
       this.plugin.settings.addBlankLinesAroundDivider = value === true;
     } else if (key === "bulletMarker" && isBulletMarker(value)) {
       this.plugin.settings.bulletMarker = value;
+    } else if (key === "dateSuggestionsEnabled") {
+      this.plugin.settings.dateSuggestionsEnabled = value === true;
+    } else if (key === "dateLinkFormat" && isDateFormat(value)) {
+      this.plugin.settings.dateLinkFormat = value;
+    } else if (key === "datePlainFormat" && isDateFormat(value)) {
+      this.plugin.settings.datePlainFormat = value;
+    } else if (key === "dateMarkStyle" && isDateMarkStyle(value)) {
+      this.plugin.settings.dateMarkStyle = value;
+    } else if (key === "dateWeekStart" && isWeekStart(value)) {
+      this.plugin.settings.dateWeekStart = value;
     } else if (key === "duplicateMode" && isDuplicateMode(value)) {
       this.plugin.settings.duplicateMode = value;
     } else if (key === "sortMode" && isSortMode(value)) {
@@ -255,6 +317,86 @@ export class TextAlchemySettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.ignoreCodeBlocks)
           .onChange(async (value) => {
             this.plugin.settings.ignoreCodeBlocks = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Dates")
+      .setHeading();
+
+    new Setting(containerEl)
+      .setName("Date suggestions")
+      .setDesc("Info: Opens date suggestions after @. Example: @today inserts a linked date with enter or a plain date with shift enter.")
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.dateSuggestionsEnabled)
+          .onChange(async (value) => {
+            this.plugin.settings.dateSuggestionsEnabled = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Linked date format")
+      .setDesc("Info: Controls the date inside wiki links. Example output: [[2026-09-02|today]].")
+      .addDropdown((dropdown) => {
+        for (const [value, label] of Object.entries(DATE_FORMAT_LABELS)) {
+          dropdown.addOption(value, label);
+        }
+
+        dropdown
+          .setValue(this.plugin.settings.dateLinkFormat)
+          .onChange(async (value) => {
+            this.plugin.settings.dateLinkFormat = isDateFormat(value) ? value : "YYYY-MM-DD";
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Plain date format")
+      .setDesc("Info: Controls shift-enter output. Example output: 02/09/2026.")
+      .addDropdown((dropdown) => {
+        for (const [value, label] of Object.entries(DATE_FORMAT_LABELS)) {
+          dropdown.addOption(value, label);
+        }
+
+        dropdown
+          .setValue(this.plugin.settings.datePlainFormat)
+          .onChange(async (value) => {
+            this.plugin.settings.datePlainFormat = isDateFormat(value) ? value : "DD/MM/YYYY";
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Date mark style")
+      .setDesc("Info: Controls the text after | in date links. Example output: [[2026-09-02|today]].")
+      .addDropdown((dropdown) => {
+        for (const [value, label] of Object.entries(DATE_MARK_STYLE_LABELS)) {
+          dropdown.addOption(value, label);
+        }
+
+        dropdown
+          .setValue(this.plugin.settings.dateMarkStyle)
+          .onChange(async (value) => {
+            this.plugin.settings.dateMarkStyle = isDateMarkStyle(value) ? value : "friendly";
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Week starts on")
+      .setDesc("Info: Controls start-of-week and end-of-week date shortcuts.")
+      .addDropdown((dropdown) => {
+        for (const [value, label] of Object.entries(WEEK_START_LABELS)) {
+          dropdown.addOption(value, label);
+        }
+
+        dropdown
+          .setValue(this.plugin.settings.dateWeekStart)
+          .onChange(async (value) => {
+            this.plugin.settings.dateWeekStart = isWeekStart(value) ? value : "monday";
             await this.plugin.saveSettings();
           });
       });

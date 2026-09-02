@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0
+
+- Added `@` date suggestions for Today, Tomorrow, Yesterday, Next week, Last week, Next month, Last month, Next year, Last year, Start of week, and End of week.
+- Added linked date insertion with `Enter`, such as `[[2026-09-02|Today]]`.
+- Added plain date insertion with `Shift Enter`, such as `02/09/2026`.
+- Added date settings for linked date format, plain date format, date mark style, week start, and date suggestions on or off.
+- Added behavior tests for date suggestions, linked insertion, plain insertion, and custom date formats.
+
 ## 1.1.1
 
 - Polished the repository for GitHub publication.

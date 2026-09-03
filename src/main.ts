@@ -4,6 +4,7 @@ import { applyProtectedTransform, type TextTransform } from "./protection";
 import { runPipeline } from "./pipeline";
 import { TextAlchemySettingTab } from "./settings-tab";
 import { sortHeadingsAZ, sortLinesAZ, sortLinesZA, sortTitleLinesAZ } from "./sorting";
+import { expandInlineTitleDate } from "./title-date";
 import {
   ALL_HEADING_LEVELS,
   DEFAULT_SETTINGS,
@@ -78,11 +79,14 @@ export default class TextAlchemyPlugin extends Plugin {
 
     this.addSettingTab(new TextAlchemySettingTab(this.app, this));
     this.registerEditorSuggest(new DateTokenSuggest(this.app, this));
+    this.registerDomEvent(document, "input", (event) => {
+      expandInlineTitleDate(event, this.settings);
+    });
   }
 
   async loadSettings(): Promise<void> {
     const savedSettings = await this.loadData() as Partial<TextAlchemySettings> | null;
-    this.settings = normalizeSettings({ ...DEFAULT_SETTINGS, ...(savedSettings ?? {}) });
+    this.settings = normalizeSettings(savedSettings ?? {});
   }
 
   async saveSettings(): Promise<void> {

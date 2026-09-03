@@ -2,10 +2,12 @@ export const ALL_HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const;
 
 export type HeadingLevel = (typeof ALL_HEADING_LEVELS)[number];
 export type BulletMarker = "-" | "*" | "+";
-export type DateFormat = "YYYY-MM-DD" | "YYYY/MM/DD" | "DD/MM/YYYY" | "MM/DD/YYYY" | "DD/MM/YY" | "MM/DD/YY" | "DD-MM-YYYY" | "MM-DD-YYYY";
+export type DateFormat = "YYYY-MM-DD" | "YYYY/MM/DD" | "YYYY.MM.DD" | "DD/MM/YYYY" | "MM/DD/YYYY" | "DD/MM/YY" | "MM/DD/YY" | "DD-MM-YYYY" | "MM-DD-YYYY" | "DD-MM-YY" | "MM-DD-YY" | "DD.MM.YYYY" | "MM.DD.YYYY";
+export type DateInsertionStyle = "linkedFriendly" | "linkedDate" | "linked" | "plain" | "parenthesized";
 export type DateMarkStyle = "friendly" | "plainDate" | "linkDate" | "none";
 export type DuplicateMode = "off" | "soft" | "hard";
 export type SortMode = "off" | "linesAz" | "linesZa" | "headingsAz" | "titleLinesAz";
+export type TitleDateStyle = "plain" | "parenthesized";
 export type WeekStart = "monday" | "sunday";
 
 export interface PipelineSettings {
@@ -35,9 +37,13 @@ export interface TextAlchemySettings {
   addBlankLinesAroundDivider: boolean;
   bulletMarker: BulletMarker;
   dateSuggestionsEnabled: boolean;
+  titleDateExpansionEnabled: boolean;
   dateLinkFormat: DateFormat;
   datePlainFormat: DateFormat;
-  dateMarkStyle: DateMarkStyle;
+  dateEnterStyle: DateInsertionStyle;
+  dateShiftEnterStyle: DateInsertionStyle;
+  titleDateFormat: DateFormat;
+  titleDateStyle: TitleDateStyle;
   dateWeekStart: WeekStart;
   numberedListStart: number;
   duplicateMode: DuplicateMode;
@@ -84,19 +90,30 @@ export const PIPELINE_TOOL_INFO: Record<keyof PipelineSettings, string> = {
 export const DATE_FORMAT_LABELS: Record<DateFormat, string> = {
   "YYYY-MM-DD": "YYYY-MM-DD",
   "YYYY/MM/DD": "YYYY/MM/DD",
+  "YYYY.MM.DD": "YYYY.MM.DD",
   "DD/MM/YYYY": "DD/MM/YYYY",
   "MM/DD/YYYY": "MM/DD/YYYY",
   "DD/MM/YY": "DD/MM/YY",
   "MM/DD/YY": "MM/DD/YY",
   "DD-MM-YYYY": "DD-MM-YYYY",
-  "MM-DD-YYYY": "MM-DD-YYYY"
+  "MM-DD-YYYY": "MM-DD-YYYY",
+  "DD-MM-YY": "DD-MM-YY",
+  "MM-DD-YY": "MM-DD-YY",
+  "DD.MM.YYYY": "DD.MM.YYYY",
+  "MM.DD.YYYY": "MM.DD.YYYY"
 };
 
-export const DATE_MARK_STYLE_LABELS: Record<DateMarkStyle, string> = {
-  friendly: "Friendly mark",
-  plainDate: "Plain date",
-  linkDate: "Linked date",
-  none: "No mark"
+export const DATE_INSERTION_STYLE_LABELS: Record<DateInsertionStyle, string> = {
+  linkedFriendly: "[[date|mark]]",
+  linkedDate: "[[date|date]]",
+  linked: "[[date]]",
+  plain: "date",
+  parenthesized: "(date)"
+};
+
+export const TITLE_DATE_STYLE_LABELS: Record<TitleDateStyle, string> = {
+  plain: "date",
+  parenthesized: "(date)"
 };
 
 export const WEEK_START_LABELS: Record<WeekStart, string> = {
@@ -157,9 +174,13 @@ export const DEFAULT_SETTINGS: TextAlchemySettings = {
   addBlankLinesAroundDivider: true,
   bulletMarker: "-",
   dateSuggestionsEnabled: true,
+  titleDateExpansionEnabled: true,
   dateLinkFormat: "YYYY-MM-DD",
   datePlainFormat: "DD/MM/YYYY",
-  dateMarkStyle: "friendly",
+  dateEnterStyle: "linkedFriendly",
+  dateShiftEnterStyle: "plain",
+  titleDateFormat: "DD-MM-YYYY",
+  titleDateStyle: "parenthesized",
   dateWeekStart: "monday",
   numberedListStart: 1,
   duplicateMode: "off",
@@ -168,6 +189,8 @@ export const DEFAULT_SETTINGS: TextAlchemySettings = {
 };
 
 export function normalizeSettings(settings: Partial<TextAlchemySettings>): TextAlchemySettings {
+  const legacySettings = settings as Partial<TextAlchemySettings> & { dateMarkStyle?: DateMarkStyle };
+
   return {
     fallbackToWholeNote: settings.fallbackToWholeNote !== false,
     ignoreYamlFrontmatter: settings.ignoreYamlFrontmatter !== false,
@@ -177,9 +200,15 @@ export function normalizeSettings(settings: Partial<TextAlchemySettings>): TextA
     addBlankLinesAroundDivider: settings.addBlankLinesAroundDivider !== false,
     bulletMarker: isBulletMarker(settings.bulletMarker) ? settings.bulletMarker : "-",
     dateSuggestionsEnabled: settings.dateSuggestionsEnabled !== false,
+    titleDateExpansionEnabled: settings.titleDateExpansionEnabled !== false,
     dateLinkFormat: isDateFormat(settings.dateLinkFormat) ? settings.dateLinkFormat : "YYYY-MM-DD",
     datePlainFormat: isDateFormat(settings.datePlainFormat) ? settings.datePlainFormat : "DD/MM/YYYY",
-    dateMarkStyle: isDateMarkStyle(settings.dateMarkStyle) ? settings.dateMarkStyle : "friendly",
+    dateEnterStyle: isDateInsertionStyle(settings.dateEnterStyle)
+      ? settings.dateEnterStyle
+      : migrateDateMarkStyle(legacySettings.dateMarkStyle),
+    dateShiftEnterStyle: isDateInsertionStyle(settings.dateShiftEnterStyle) ? settings.dateShiftEnterStyle : "plain",
+    titleDateFormat: isDateFormat(settings.titleDateFormat) ? settings.titleDateFormat : "DD-MM-YYYY",
+    titleDateStyle: isTitleDateStyle(settings.titleDateStyle) ? settings.titleDateStyle : "parenthesized",
     dateWeekStart: isWeekStart(settings.dateWeekStart) ? settings.dateWeekStart : "monday",
     numberedListStart: normalizeStartNumber(settings.numberedListStart),
     duplicateMode: isDuplicateMode(settings.duplicateMode) ? settings.duplicateMode : "off",
@@ -207,16 +236,25 @@ export function isBulletMarker(value: unknown): value is BulletMarker {
 export function isDateFormat(value: unknown): value is DateFormat {
   return value === "YYYY-MM-DD"
     || value === "YYYY/MM/DD"
+    || value === "YYYY.MM.DD"
     || value === "DD/MM/YYYY"
     || value === "MM/DD/YYYY"
     || value === "DD/MM/YY"
     || value === "MM/DD/YY"
     || value === "DD-MM-YYYY"
-    || value === "MM-DD-YYYY";
+    || value === "MM-DD-YYYY"
+    || value === "DD-MM-YY"
+    || value === "MM-DD-YY"
+    || value === "DD.MM.YYYY"
+    || value === "MM.DD.YYYY";
 }
 
-export function isDateMarkStyle(value: unknown): value is DateMarkStyle {
-  return value === "friendly" || value === "plainDate" || value === "linkDate" || value === "none";
+export function isDateInsertionStyle(value: unknown): value is DateInsertionStyle {
+  return value === "linkedFriendly"
+    || value === "linkedDate"
+    || value === "linked"
+    || value === "plain"
+    || value === "parenthesized";
 }
 
 export function isDuplicateMode(value: unknown): value is DuplicateMode {
@@ -239,6 +277,10 @@ export function isSortMode(value: unknown): value is SortMode {
     || value === "titleLinesAz";
 }
 
+export function isTitleDateStyle(value: unknown): value is TitleDateStyle {
+  return value === "plain" || value === "parenthesized";
+}
+
 export function isWeekStart(value: unknown): value is WeekStart {
   return value === "monday" || value === "sunday";
 }
@@ -256,4 +298,10 @@ function normalizePipeline(pipeline: Partial<PipelineSettings> | undefined): Pip
 function normalizeStartNumber(startAt: unknown): number {
   const parsed = typeof startAt === "number" ? startAt : Number.parseInt(String(startAt), 10);
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1;
+}
+
+function migrateDateMarkStyle(value: DateMarkStyle | undefined): DateInsertionStyle {
+  if (value === "none") return "linked";
+  if (value === "plainDate" || value === "linkDate") return "linkedDate";
+  return "linkedFriendly";
 }

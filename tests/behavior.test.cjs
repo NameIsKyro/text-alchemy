@@ -8,7 +8,10 @@ const bundlePath = path.join(rootDir, "main.js");
 const bundleCode = fs.readFileSync(bundlePath, "utf8");
 const commands = [];
 const editorSuggests = [];
+const domEvents = [];
 const notices = [];
+let savedPluginData = null;
+let selectedDateToken = null;
 const fixedNow = new Date("2026-09-02T12:00:00.000Z");
 
 class FixedDate extends Date {
@@ -38,8 +41,12 @@ class PluginMock {
     editorSuggests.push(editorSuggest);
   }
 
+  registerDomEvent(element, type, callback, options) {
+    domEvents.push({ element, type, callback, options });
+  }
+
   async loadData() {
-    return null;
+    return savedPluginData;
   }
 
   async saveData(data) {
@@ -69,6 +76,14 @@ class EditorSuggestMock {
     this.app = app;
     this.context = null;
     this.instructions = [];
+    this.scope = {
+      handlers: [],
+      register: (modifiers, key, callback) => {
+        const handler = { modifiers, key, callback };
+        this.scope.handlers.push(handler);
+        return handler;
+      }
+    };
   }
 
   setInstructions(instructions) {
@@ -78,9 +93,18 @@ class EditorSuggestMock {
   close() {}
 }
 
+const documentMock = {
+  querySelector() {
+    return selectedDateToken
+      ? { dataset: { textAlchemyDateToken: selectedDateToken } }
+      : null;
+  }
+};
+
 const sandbox = {
   console,
   Date: FixedDate,
+  document: documentMock,
   exports: {},
   module: { exports: {} },
   require(name) {
@@ -191,13 +215,19 @@ async function loadPlugin() {
   assert.equal(plugin.settings.ignoreCodeBlocks, true);
   assert.equal(commands.length, 25);
   assert.equal(editorSuggests.length, 1);
+  assert.equal(domEvents.length, 1);
   assert.ok(commands.every((command) => !command.id.includes("text-alchemy")));
 
   const dateSuggest = editorSuggests[0];
   assert.deepEqual(toPlain(dateSuggest.instructions), [
-    { command: "Enter", purpose: "Insert linked date" },
-    { command: "Shift Enter", purpose: "Insert plain date" }
+    { command: "Enter", purpose: "Insert primary date style" },
+    { command: "Shift+Enter", purpose: "Insert alternate date style" }
   ]);
+
+  const shiftEnterHandler = dateSuggest.scope.handlers.find((handler) => {
+    return handler.key === "Enter" && toPlain(handler.modifiers).includes("Shift");
+  });
+  assert.ok(shiftEnterHandler, "Expected Shift+Enter to be registered with the suggestion key scope");
 
   let rangeEditor = createRangeEditor("Pay @tod");
   let trigger = dateSuggest.onTrigger({ line: 0, ch: 8 }, rangeEditor, null);
@@ -216,11 +246,142 @@ async function loadPlugin() {
   today = suggestions.find((suggestion) => suggestion.token === "today");
   assert.ok(today, "Expected @today suggestion for plain insert");
   dateSuggest.context = { ...trigger, editor: rangeEditor, file: null };
-  dateSuggest.selectSuggestion(today, { shiftKey: true });
+  shiftEnterHandler.callback({ shiftKey: true, key: "Enter" });
   assert.equal(rangeEditor.read(), "Due 02/09/2026");
+
+  plugin.settings.dateShiftEnterStyle = "plain";
+  rangeEditor = createRangeEditor("Due @");
+  trigger = dateSuggest.onTrigger({ line: 0, ch: 5 }, rangeEditor, null);
+  dateSuggest.getSuggestions({ ...trigger, editor: rangeEditor, file: null });
+  dateSuggest.context = { ...trigger, editor: rangeEditor, file: null };
+  selectedDateToken = "tomorrow";
+  shiftEnterHandler.callback({ shiftKey: true, key: "Enter" });
+  selectedDateToken = null;
+  assert.equal(rangeEditor.read(), "Due 03/09/2026");
+
+  plugin.settings.dateEnterStyle = "linkedDate";
+  plugin.settings.dateShiftEnterStyle = "parenthesized";
+  rangeEditor = createRangeEditor("Logged @today");
+  trigger = dateSuggest.onTrigger({ line: 0, ch: 13 }, rangeEditor, null);
+  suggestions = dateSuggest.getSuggestions({ ...trigger, editor: rangeEditor, file: null });
+  today = suggestions.find((suggestion) => suggestion.token === "today");
+  dateSuggest.context = { ...trigger, editor: rangeEditor, file: null };
+  dateSuggest.selectSuggestion(today, { shiftKey: false });
+  assert.equal(rangeEditor.read(), "Logged [[2026-09-02|02/09/2026]]");
+
+  rangeEditor = createRangeEditor("Logged @today");
+  trigger = dateSuggest.onTrigger({ line: 0, ch: 13 }, rangeEditor, null);
+  dateSuggest.getSuggestions({ ...trigger, editor: rangeEditor, file: null });
+  dateSuggest.context = { ...trigger, editor: rangeEditor, file: null };
+  shiftEnterHandler.callback({ shiftKey: true, key: "Enter" });
+  assert.equal(rangeEditor.read(), "Logged (02/09/2026)");
+
+  const styleExpectations = {
+    linkedFriendly: "[[2026-09-02|Today]]",
+    linkedDate: "[[2026-09-02|02/09/2026]]",
+    linked: "[[2026-09-02]]",
+    plain: "02/09/2026",
+    parenthesized: "(02/09/2026)"
+  };
+
+  for (const [style, expected] of Object.entries(styleExpectations)) {
+    plugin.settings.dateEnterStyle = style;
+    rangeEditor = createRangeEditor("@today");
+    trigger = dateSuggest.onTrigger({ line: 0, ch: 6 }, rangeEditor, null);
+    suggestions = dateSuggest.getSuggestions({ ...trigger, editor: rangeEditor, file: null });
+    today = suggestions.find((suggestion) => suggestion.token === "today");
+    dateSuggest.context = { ...trigger, editor: rangeEditor, file: null };
+    dateSuggest.selectSuggestion(today, { shiftKey: false });
+    assert.equal(rangeEditor.read(), expected, `Unexpected output for ${style}`);
+  }
+
+  plugin.settings.titleDateFormat = "DD-MM-YYYY";
+  plugin.settings.titleDateStyle = "parenthesized";
+  rangeEditor = createRangeEditor("# Research @date");
+  trigger = dateSuggest.onTrigger({ line: 0, ch: 16 }, rangeEditor, null);
+  suggestions = dateSuggest.getSuggestions({ ...trigger, editor: rangeEditor, file: null });
+  const titleDate = suggestions.find((suggestion) => suggestion.token === "date");
+  assert.ok(titleDate, "Expected @date title suggestion");
+  dateSuggest.context = { ...trigger, editor: rangeEditor, file: null };
+  dateSuggest.selectSuggestion(titleDate, { shiftKey: false });
+  assert.equal(rangeEditor.read(), "# Research (02-09-2026)");
+
+  const titleInputHandler = domEvents.find((event) => event.type === "input");
+  assert.ok(titleInputHandler, "Expected inline title input handling");
+
+  const inlineTitle = {
+    textContent: "Research @date",
+    matches(selector) {
+      return selector.includes(".inline-title");
+    },
+    closest() {
+      return this;
+    },
+    dispatchEvent() {}
+  };
+  titleInputHandler.callback({ target: inlineTitle });
+  assert.equal(inlineTitle.textContent, "Research (02-09-2026)");
+
+  let inputSelection = null;
+  let rangeWasUsedForInput = false;
+  const titleInput = {
+    tagName: "INPUT",
+    value: "Research @date",
+    matches(selector) {
+      return selector.includes("input");
+    },
+    closest() {
+      return this;
+    },
+    setSelectionRange(start, end) {
+      inputSelection = { start, end };
+    },
+    dispatchEvent() {},
+    ownerDocument: {
+      defaultView: {
+        Event: class EventMock {
+          constructor(type, options) {
+            this.type = type;
+            this.options = options;
+          }
+        },
+        getSelection() {
+          return {
+            removeAllRanges() {},
+            addRange() {}
+          };
+        }
+      },
+      createRange() {
+        rangeWasUsedForInput = true;
+        return {
+          selectNodeContents() {},
+          collapse() {}
+        };
+      }
+    }
+  };
+  titleInputHandler.callback({ target: titleInput });
+  assert.equal(titleInput.value, "Research (02-09-2026)");
+  assert.deepEqual(inputSelection, { start: 21, end: 21 });
+  assert.equal(rangeWasUsedForInput, false);
+
+  plugin.settings.titleDateFormat = "DD/MM/YYYY";
+  plugin.settings.titleDateStyle = "plain";
+  inlineTitle.textContent = "Research @date";
+  titleInputHandler.callback({ target: inlineTitle });
+  assert.equal(inlineTitle.textContent, "Research 02-09-2026");
+
+  plugin.settings.dateSuggestionsEnabled = false;
+  plugin.settings.titleDateExpansionEnabled = true;
+  inlineTitle.textContent = "Independent @date";
+  titleInputHandler.callback({ target: inlineTitle });
+  assert.equal(inlineTitle.textContent, "Independent 02-09-2026");
+  plugin.settings.dateSuggestionsEnabled = true;
 
   plugin.settings.dateLinkFormat = "DD/MM/YYYY";
   plugin.settings.datePlainFormat = "YYYY/MM/DD";
+  plugin.settings.dateEnterStyle = "linkedFriendly";
   rangeEditor = createRangeEditor("Plan @nextweek");
   trigger = dateSuggest.onTrigger({ line: 0, ch: 14 }, rangeEditor, null);
   suggestions = dateSuggest.getSuggestions({ ...trigger, editor: rangeEditor, file: null });
@@ -272,6 +433,15 @@ async function loadPlugin() {
   assert.equal(editor.read(), "[[Milk]]\n[[Cheese]]");
 
   assert.ok(notices.length > 0);
+
+  savedPluginData = {
+    dateMarkStyle: "none",
+    datePlainFormat: "MM-DD-YYYY"
+  };
+  const migratedPlugin = await loadPlugin();
+  assert.equal(migratedPlugin.settings.dateEnterStyle, "linked");
+  assert.equal(migratedPlugin.settings.datePlainFormat, "MM-DD-YYYY");
+
   console.log("Behavior tests passed");
 })().catch((error) => {
   console.error(error);

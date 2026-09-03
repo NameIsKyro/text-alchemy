@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.0
+
+- Fixed `Shift+Enter` date insertion by registering it directly with the suggestion keyboard scope.
+- Added independent insertion styles for `Enter` and `Shift+Enter`: `[[date|mark]]`, `[[date|date]]`, `[[date]]`, `date`, and `(date)`.
+- Added `@date` expansion for Markdown headings and Obsidian note titles.
+- Added separate title date format and title wrapper settings.
+- Added a separate setting for turning note-title `@date` expansion on or off.
+- Added more slash, hyphen, and dot-separated day-month-year and month-day-year formats.
+- Added filename-safe handling that changes `/` to `-` only in Obsidian note titles.
+- Added regression tests for modified-key selection, every insertion style, heading dates, and inline title dates.
+
 ## 1.2.0
 
 - Added `@` date suggestions for Today, Tomorrow, Yesterday, Next week, Last week, Next month, Last month, Next year, Last year, Start of week, and End of week.

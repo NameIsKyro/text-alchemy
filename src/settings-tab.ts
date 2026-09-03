@@ -4,19 +4,21 @@ import type { Plugin, SettingDefinition, SettingDefinitionItem, SettingGroupItem
 import {
   ALL_HEADING_LEVELS,
   DATE_FORMAT_LABELS,
-  DATE_MARK_STYLE_LABELS,
+  DATE_INSERTION_STYLE_LABELS,
   PIPELINE_KEYS,
   PIPELINE_TOOL_INFO,
   PIPELINE_TOOL_LABELS,
   SORT_MODE_LABELS,
+  TITLE_DATE_STYLE_LABELS,
   WEEK_START_LABELS,
   isBulletMarker,
   isDateFormat,
-  isDateMarkStyle,
+  isDateInsertionStyle,
   isDuplicateMode,
   isHeadingLevel,
   isPipelineKey,
   isSortMode,
+  isTitleDateStyle,
   isWeekStart
 } from "./types";
 
@@ -68,7 +70,13 @@ export class TextAlchemySettingTab extends PluginSettingTab {
           createToggleDefinition(
             "dateSuggestionsEnabled",
             "Date suggestions",
-            "Info: Opens date suggestions after @. Example: @today inserts a linked date with enter or a plain date with shift enter.",
+            "Info: Opens date suggestions after @. Enter and shift+enter each use the insertion style selected below.",
+            true
+          ),
+          createToggleDefinition(
+            "titleDateExpansionEnabled",
+            "Title @date expansion",
+            "Info: Expands @date in Obsidian note titles independently from the editor suggestion menu.",
             true
           ),
           createDropdownDefinition(
@@ -81,16 +89,37 @@ export class TextAlchemySettingTab extends PluginSettingTab {
           createDropdownDefinition(
             "datePlainFormat",
             "Plain date format",
-            "Info: Controls shift-enter output. Example output: 02/09/2026.",
+            "Info: Controls the date shown by date, (date), and [[date|date]] insertion styles.",
             "DD/MM/YYYY",
             DATE_FORMAT_LABELS
           ),
           createDropdownDefinition(
-            "dateMarkStyle",
-            "Date mark style",
-            "Info: Controls the text after | in date links. Example output: [[2026-09-02|today]].",
-            "friendly",
-            DATE_MARK_STYLE_LABELS
+            "dateEnterStyle",
+            "Enter insertion style",
+            "Info: Controls enter output. Choose [[date|mark]], [[date|date]], [[date]], date, or (date).",
+            "linkedFriendly",
+            DATE_INSERTION_STYLE_LABELS
+          ),
+          createDropdownDefinition(
+            "dateShiftEnterStyle",
+            "Shift+Enter insertion style",
+            "Info: Controls shift+enter output independently. Example: choose (date) to insert (02/09/2026).",
+            "plain",
+            DATE_INSERTION_STYLE_LABELS
+          ),
+          createDropdownDefinition(
+            "titleDateFormat",
+            "Title date format",
+            "Info: Controls @date in headings and note titles. Slashes become hyphens only in filename titles.",
+            "DD-MM-YYYY",
+            DATE_FORMAT_LABELS
+          ),
+          createDropdownDefinition(
+            "titleDateStyle",
+            "Title date style",
+            "Info: Choose date or (date). Example: a research title with @date becomes research (02-09-2026).",
+            "parenthesized",
+            TITLE_DATE_STYLE_LABELS
           ),
           createDropdownDefinition(
             "dateWeekStart",
@@ -210,9 +239,13 @@ export class TextAlchemySettingTab extends PluginSettingTab {
     if (key === "addBlankLinesAroundDivider") return this.plugin.settings.addBlankLinesAroundDivider;
     if (key === "bulletMarker") return this.plugin.settings.bulletMarker;
     if (key === "dateSuggestionsEnabled") return this.plugin.settings.dateSuggestionsEnabled;
+    if (key === "titleDateExpansionEnabled") return this.plugin.settings.titleDateExpansionEnabled;
     if (key === "dateLinkFormat") return this.plugin.settings.dateLinkFormat;
     if (key === "datePlainFormat") return this.plugin.settings.datePlainFormat;
-    if (key === "dateMarkStyle") return this.plugin.settings.dateMarkStyle;
+    if (key === "dateEnterStyle") return this.plugin.settings.dateEnterStyle;
+    if (key === "dateShiftEnterStyle") return this.plugin.settings.dateShiftEnterStyle;
+    if (key === "titleDateFormat") return this.plugin.settings.titleDateFormat;
+    if (key === "titleDateStyle") return this.plugin.settings.titleDateStyle;
     if (key === "dateWeekStart") return this.plugin.settings.dateWeekStart;
     if (key === "numberedListStart") return this.plugin.settings.numberedListStart;
     if (key === "duplicateMode") return this.plugin.settings.duplicateMode;
@@ -240,12 +273,20 @@ export class TextAlchemySettingTab extends PluginSettingTab {
       this.plugin.settings.bulletMarker = value;
     } else if (key === "dateSuggestionsEnabled") {
       this.plugin.settings.dateSuggestionsEnabled = value === true;
+    } else if (key === "titleDateExpansionEnabled") {
+      this.plugin.settings.titleDateExpansionEnabled = value === true;
     } else if (key === "dateLinkFormat" && isDateFormat(value)) {
       this.plugin.settings.dateLinkFormat = value;
     } else if (key === "datePlainFormat" && isDateFormat(value)) {
       this.plugin.settings.datePlainFormat = value;
-    } else if (key === "dateMarkStyle" && isDateMarkStyle(value)) {
-      this.plugin.settings.dateMarkStyle = value;
+    } else if (key === "dateEnterStyle" && isDateInsertionStyle(value)) {
+      this.plugin.settings.dateEnterStyle = value;
+    } else if (key === "dateShiftEnterStyle" && isDateInsertionStyle(value)) {
+      this.plugin.settings.dateShiftEnterStyle = value;
+    } else if (key === "titleDateFormat" && isDateFormat(value)) {
+      this.plugin.settings.titleDateFormat = value;
+    } else if (key === "titleDateStyle" && isTitleDateStyle(value)) {
+      this.plugin.settings.titleDateStyle = value;
     } else if (key === "dateWeekStart" && isWeekStart(value)) {
       this.plugin.settings.dateWeekStart = value;
     } else if (key === "duplicateMode" && isDuplicateMode(value)) {
@@ -327,12 +368,24 @@ export class TextAlchemySettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Date suggestions")
-      .setDesc("Info: Opens date suggestions after @. Example: @today inserts a linked date with enter or a plain date with shift enter.")
+      .setDesc("Info: Opens date suggestions after @. Enter and shift+enter each use the insertion style selected below.")
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.dateSuggestionsEnabled)
           .onChange(async (value) => {
             this.plugin.settings.dateSuggestionsEnabled = value;
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Title @date expansion")
+      .setDesc("Info: Expands @date in Obsidian note titles independently from the editor suggestion menu.")
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.titleDateExpansionEnabled)
+          .onChange(async (value) => {
+            this.plugin.settings.titleDateExpansionEnabled = value;
             await this.plugin.saveSettings();
           });
       });
@@ -355,7 +408,7 @@ export class TextAlchemySettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Plain date format")
-      .setDesc("Info: Controls shift-enter output. Example output: 02/09/2026.")
+      .setDesc("Info: Controls the date shown by date, (date), and [[date|date]] insertion styles.")
       .addDropdown((dropdown) => {
         for (const [value, label] of Object.entries(DATE_FORMAT_LABELS)) {
           dropdown.addOption(value, label);
@@ -370,17 +423,65 @@ export class TextAlchemySettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName("Date mark style")
-      .setDesc("Info: Controls the text after | in date links. Example output: [[2026-09-02|today]].")
+      .setName("Enter insertion style")
+      .setDesc("Info: Controls enter output. Choose [[date|mark]], [[date|date]], [[date]], date, or (date).")
       .addDropdown((dropdown) => {
-        for (const [value, label] of Object.entries(DATE_MARK_STYLE_LABELS)) {
+        for (const [value, label] of Object.entries(DATE_INSERTION_STYLE_LABELS)) {
           dropdown.addOption(value, label);
         }
 
         dropdown
-          .setValue(this.plugin.settings.dateMarkStyle)
+          .setValue(this.plugin.settings.dateEnterStyle)
           .onChange(async (value) => {
-            this.plugin.settings.dateMarkStyle = isDateMarkStyle(value) ? value : "friendly";
+            this.plugin.settings.dateEnterStyle = isDateInsertionStyle(value) ? value : "linkedFriendly";
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Shift+Enter insertion style")
+      .setDesc("Info: Controls shift+enter output independently. Example: choose (date) to insert (02/09/2026).")
+      .addDropdown((dropdown) => {
+        for (const [value, label] of Object.entries(DATE_INSERTION_STYLE_LABELS)) {
+          dropdown.addOption(value, label);
+        }
+
+        dropdown
+          .setValue(this.plugin.settings.dateShiftEnterStyle)
+          .onChange(async (value) => {
+            this.plugin.settings.dateShiftEnterStyle = isDateInsertionStyle(value) ? value : "plain";
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Title date format")
+      .setDesc("Info: Controls @date in headings and note titles. Slashes become hyphens only in filename titles.")
+      .addDropdown((dropdown) => {
+        for (const [value, label] of Object.entries(DATE_FORMAT_LABELS)) {
+          dropdown.addOption(value, label);
+        }
+
+        dropdown
+          .setValue(this.plugin.settings.titleDateFormat)
+          .onChange(async (value) => {
+            this.plugin.settings.titleDateFormat = isDateFormat(value) ? value : "DD-MM-YYYY";
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName("Title date style")
+      .setDesc("Info: Choose date or (date). Example: a research title with @date becomes research (02-09-2026).")
+      .addDropdown((dropdown) => {
+        for (const [value, label] of Object.entries(TITLE_DATE_STYLE_LABELS)) {
+          dropdown.addOption(value, label);
+        }
+
+        dropdown
+          .setValue(this.plugin.settings.titleDateStyle)
+          .onChange(async (value) => {
+            this.plugin.settings.titleDateStyle = isTitleDateStyle(value) ? value : "parenthesized";
             await this.plugin.saveSettings();
           });
       });

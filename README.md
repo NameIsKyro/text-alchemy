@@ -27,7 +27,7 @@ Created by [@NameIsKyro](https://github.com/NameIsKyro).
 - Sort heading lines A to Z.
 - Sort title-style lines A to Z.
 - Insert date wiki links from `@today`, `@tomorrow`, `@nextweek`, and more.
-- Insert plain dates from the same `@` suggestions with `Shift Enter`.
+- Insert alternate date styles from the same `@` suggestions with `Shift+Enter`.
 - Clean selected text only, or clean the entire note.
 - Ignore YAML frontmatter.
 - Ignore fenced code blocks.
@@ -98,7 +98,7 @@ Pick `@today` and press `Enter`:
 [[2026-09-02|Today]]
 ```
 
-Pick `@today` and press `Shift Enter`:
+Pick `@today` and press `Shift+Enter`:
 
 ```md
 02/09/2026
@@ -136,11 +136,20 @@ No default hotkeys are registered. Add your own hotkeys in Obsidian's Hotkeys se
 
 ## Date suggestions
 
-Type `@` in the editor to open date suggestions. Press `Enter` to insert a wiki link, or press `Shift Enter` to insert the same date as plain text.
+Type `@` in the editor to open date suggestions. `Enter` and `Shift+Enter` each have their own configurable insertion style.
+
+Available insertion styles:
+
+- `[[date|mark]]`, such as `[[2026-09-02|Today]]`.
+- `[[date|date]]`, such as `[[2026-09-02|02/09/2026]]`.
+- `[[date]]`, such as `[[2026-09-02]]`.
+- `date`, such as `02/09/2026`.
+- `(date)`, such as `(02/09/2026)`.
 
 Available date suggestions:
 
 - `@today`
+- `@date` for title-style dates
 - `@tomorrow`
 - `@yesterday`
 - `@nextweek`
@@ -152,6 +161,8 @@ Available date suggestions:
 - `@startofweek`
 - `@endofweek`
 
+Use `@date` in a Markdown heading or Obsidian's inline note title to insert today's date with the dedicated title format and wrapper settings. For example, `# Research @date` can become `# Research (02-09-2026)`. Because `/` is not valid inside an Obsidian filename, slash-based formats are converted to hyphens only in the note title; Markdown headings keep the selected format exactly.
+
 ## Settings
 
 The settings tab lets you build a cleaner pipeline by toggling each tool on or off. Every option includes a short Info description and example so you can remember what it does later.
@@ -162,9 +173,13 @@ Core settings:
 - Ignore YAML frontmatter.
 - Ignore code blocks.
 - Date suggestions.
+- Title `@date` expansion.
 - Linked date format.
 - Plain date format.
-- Date mark style.
+- Enter insertion style.
+- Shift+Enter insertion style.
+- Title date format.
+- Title date style.
 - Week starts on.
 - Duplicate handling: off, soft, or hard.
 - Cleaner sort mode.

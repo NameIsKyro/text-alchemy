@@ -7,7 +7,7 @@ import type {
   EditorSuggestTriggerInfo,
   TFile
 } from "obsidian";
-import type { DateFormat, DateMarkStyle, TextAlchemySettings, WeekStart } from "./types";
+import type { DateFormat, DateInsertionStyle, TextAlchemySettings, WeekStart } from "./types";
 
 export interface DateSettingsHost {
   settings: TextAlchemySettings;
@@ -22,6 +22,7 @@ export interface DateSuggestion {
 
 const DATE_SUGGESTIONS: DateSuggestion[] = [
   createDaySuggestion("today", "Today", "Current date", 0),
+  createDaySuggestion("date", "Date", "Current date for titles", 0),
   createDaySuggestion("tomorrow", "Tomorrow", "One day from now", 1),
   createDaySuggestion("yesterday", "Yesterday", "One day before now", -1),
   createDaySuggestion("nextweek", "Next week", "Seven days from now", 7),
@@ -66,14 +67,25 @@ const DATE_SUGGESTIONS: DateSuggestion[] = [
 
 export class DateTokenSuggest extends EditorSuggest<DateSuggestion> {
   private readonly plugin: DateSettingsHost;
+  private visibleSuggestions: DateSuggestion[] = [];
 
   constructor(app: App, plugin: DateSettingsHost) {
     super(app);
     this.plugin = plugin;
     this.setInstructions([
-      { command: "Enter", purpose: "Insert linked date" },
-      { command: "Shift Enter", purpose: "Insert plain date" }
+      { command: "Enter", purpose: "Insert primary date style" },
+      { command: "Shift+Enter", purpose: "Insert alternate date style" }
     ]);
+    this.scope.register(["Shift"], "Enter", (evt) => {
+      const suggestion = this.getActiveSuggestion();
+
+      if (!suggestion) {
+        return;
+      }
+
+      this.selectSuggestion(suggestion, evt);
+      return false;
+    });
   }
 
   onTrigger(cursor: EditorPosition, editor: Editor, _file: TFile | null): EditorSuggestTriggerInfo | null {
@@ -109,13 +121,16 @@ export class DateTokenSuggest extends EditorSuggest<DateSuggestion> {
 
     const query = context.query.toLowerCase();
 
-    return DATE_SUGGESTIONS.filter((suggestion) => {
+    this.visibleSuggestions = DATE_SUGGESTIONS.filter((suggestion) => {
       return suggestion.token.startsWith(query) || suggestion.label.toLowerCase().includes(query);
     });
+
+    return this.visibleSuggestions;
   }
 
   renderSuggestion(value: DateSuggestion, el: HTMLElement): void {
     el.addClass("text-alchemy-date-suggestion");
+    el.dataset.textAlchemyDateToken = value.token;
     el.createDiv({ cls: "text-alchemy-date-suggestion-title", text: `@${value.token}` });
     el.createDiv({ cls: "text-alchemy-date-suggestion-note", text: `${value.label} - ${this.previewDate(value)}` });
   }
@@ -125,25 +140,65 @@ export class DateTokenSuggest extends EditorSuggest<DateSuggestion> {
       return;
     }
 
-    const replacement = evt.shiftKey
-      ? formatDate(value.resolveDate(new Date(), this.plugin.settings.dateWeekStart), this.plugin.settings.datePlainFormat)
-      : formatLinkedDate(value, this.plugin.settings, new Date());
+    const replacement = value.token === "date"
+      ? formatTitleDate(new Date(), this.plugin.settings, false)
+      : formatDateInsertion(
+        value,
+        evt.shiftKey ? this.plugin.settings.dateShiftEnterStyle : this.plugin.settings.dateEnterStyle,
+        this.plugin.settings,
+        new Date()
+      );
 
     this.context.editor.replaceRange(replacement, this.context.start, this.context.end);
     this.close();
   }
 
   private previewDate(value: DateSuggestion): string {
-    return formatLinkedDate(value, this.plugin.settings, new Date());
+    if (value.token === "date") {
+      return formatTitleDate(new Date(), this.plugin.settings, false);
+    }
+
+    return formatDateInsertion(value, this.plugin.settings.dateEnterStyle, this.plugin.settings, new Date());
+  }
+
+  private getActiveSuggestion(): DateSuggestion | undefined {
+    const selectedElement = typeof document === "undefined"
+      ? null
+      : document.querySelector<HTMLElement>(".text-alchemy-date-suggestion.is-selected");
+    const selectedToken = selectedElement?.dataset.textAlchemyDateToken;
+
+    if (selectedToken) {
+      const selectedSuggestion = this.visibleSuggestions.find((suggestion) => suggestion.token === selectedToken);
+
+      if (selectedSuggestion) {
+        return selectedSuggestion;
+      }
+    }
+
+    const exactMatch = this.visibleSuggestions.find((suggestion) => suggestion.token === this.context?.query);
+    return exactMatch ?? this.visibleSuggestions[0];
   }
 }
 
 export function formatLinkedDate(suggestion: DateSuggestion, settings: TextAlchemySettings, now: Date): string {
+  return formatDateInsertion(suggestion, "linkedFriendly", settings, now);
+}
+
+export function formatDateInsertion(
+  suggestion: DateSuggestion,
+  style: DateInsertionStyle,
+  settings: TextAlchemySettings,
+  now: Date
+): string {
   const date = suggestion.resolveDate(now, settings.dateWeekStart);
   const linkDate = formatDate(date, settings.dateLinkFormat);
-  const mark = formatDateMark(suggestion, settings.dateMarkStyle, date, settings);
+  const plainDate = formatDate(date, settings.datePlainFormat);
 
-  return mark.length > 0 ? `[[${linkDate}|${mark}]]` : `[[${linkDate}]]`;
+  if (style === "linkedDate") return `[[${linkDate}|${plainDate}]]`;
+  if (style === "linked") return `[[${linkDate}]]`;
+  if (style === "plain") return plainDate;
+  if (style === "parenthesized") return `(${plainDate})`;
+  return `[[${linkDate}|${suggestion.label}]]`;
 }
 
 export function formatDate(date: Date, format: DateFormat): string {
@@ -159,25 +214,10 @@ export function formatDate(date: Date, format: DateFormat): string {
     .replace("DD", day);
 }
 
-function formatDateMark(
-  suggestion: DateSuggestion,
-  markStyle: DateMarkStyle,
-  date: Date,
-  settings: TextAlchemySettings
-): string {
-  if (markStyle === "plainDate") {
-    return formatDate(date, settings.datePlainFormat);
-  }
-
-  if (markStyle === "linkDate") {
-    return formatDate(date, settings.dateLinkFormat);
-  }
-
-  if (markStyle === "none") {
-    return "";
-  }
-
-  return suggestion.label;
+export function formatTitleDate(date: Date, settings: TextAlchemySettings, fileNameSafe: boolean): string {
+  const formatted = formatDate(date, settings.titleDateFormat);
+  const safeDate = fileNameSafe ? formatted.replace(/\//g, "-") : formatted;
+  return settings.titleDateStyle === "parenthesized" ? `(${safeDate})` : safeDate;
 }
 
 function createDaySuggestion(token: string, label: string, description: string, offsetDays: number): DateSuggestion {
